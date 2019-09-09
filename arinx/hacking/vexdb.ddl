@@ -62,7 +62,6 @@ CREATE TABLE IF NOT EXISTS AiType (
        FOREIGN KEY(parent) REFERENCES IRType(id)
 );
 
-
 -- Table of operation signatures, AiOpSig
 DROP TABLE IF EXISTS AiOpSig;
 CREATE TABLE IF NOT EXISTS AiOpSig (
@@ -104,3 +103,31 @@ CREATE VIEW IF NOT EXISTS AiOpSigView AS
          IRTypeView opd4 ON s.opd4=opd4.id
     ORDER BY s.id      
 ;      
+
+
+-- Table of VEX operations (from `enum IROp`), with additional column
+-- for signature:
+DROP TABLE IF EXISTS IROp;
+CREATE TABLE IF NOT EXISTS IROp (
+     id      INTEGER  PRIMARY KEY,
+     mnem    CHAR(16) NOT NULL,     -- mnemonic part of the IROp's identifier
+     aiopsig INTEGER      NULL,     -- IROp's signature in AiOpSig
+
+     FOREIGN KEY (aiopsig) REFERENCES AiOpSig(id)
+);
+
+
+-- Human-readable view of IROp's with signatures
+DROP VIEW IF EXISTS IROpView;
+CREATE VIEW IF NOT EXISTS IROpView AS
+    SELECT op.id, "Iop_" || op.mnem, op.aiopsig AS opsig,
+        sig.res, sig.opd1, sig.opd2, sig.opd3, sig.opd4    
+    FROM IROp op
+       JOIN
+           AiOpSig sig
+       ON
+           op.aiopsig=sig.id
+    ORDER BY op.id      
+;      
+
+

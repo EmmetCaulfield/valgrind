@@ -25,5 +25,5 @@ with open('irtypes.lst') as f:
             nbits=int(line[5:])
             curs.execute(sql, (value, btype, nbits));
             
-        conn.commit()
+conn.commit()
 conn.close()

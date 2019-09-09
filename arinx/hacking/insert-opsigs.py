@@ -47,5 +47,5 @@ with open('unique-opsigs.csv') as f:
             print(e)
             print(line)
 
-        conn.commit()
+conn.commit()
 conn.close()
