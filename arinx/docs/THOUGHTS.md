@@ -112,10 +112,85 @@ before we've considered the class of operation ("arithmetic",
 An alternative is to use a lookup table. We only have 182 different
 signatures, so a single byte can be used to characterize them.
 
-However, the 182 different signatures treat vector registers as all
-having the same type (`Ity_V128` or `Ity_V256`) and don't distinguish
-between, say, a `Ity_V128` that contains 16 characters and a
-`Ity_V128` that contains four `float`s or two ` doubles`. For our
-purposes, we _need_ this distinction, which is informally encoded into
-`enum IROp` in the names of the members, e.g. `Iop_Add8x32`,
-`Iop_Add64x4`, and `Iop_Mul64Fx4`, which all have `Ity_V256` operands.
+However, these signatures treat vector registers as all having the
+same type (`Ity_V128` or `Ity_V256`) and don't distinguish between,
+say, a `Ity_V128` that contains 16 characters and a `Ity_V128` that
+contains four `float`s or two ` doubles`. There are 37 such
+_signatures_ (i.e. containing one or more `Ity_V128` or `Ity_V256`)
+shared by 530 `IROp`s.
+
+The distinction we need is partially encoded into the `IROp`s in the
+names of the members of the `enum`, e.g. `Iop_Add8x32`, `Iop_Add64x4`,
+and `Iop_Mul64Fx4`, which all have `Ity_V256` operands. What isn't
+always clear is _which_ of the operands the name-encoded
+{bits}x{lanes} refer to. Very often, the `IROp`s are uniform
+(e.g. `Iop_Add8x16`'s three `Ity_V128` operands are all interpreted as
+having 16 lane's of 8-bit integers) but that isn't necessarily always
+the case. There are a handful of `IROp`s, such as
+`Iop_F32x4_2toQ16x8`, where different `Ity_V128` operands have
+different type/width structures.
+
+Furthermore, there are 110 `IROp` identifiers with an encoded `NxM`
+that _don't_ have "vector" arguments, such as `Iop_Add16x2` (with
+`Ity_I32` operands) and `Iop_Add8x8` (with `Ity_I64` operands). I
+guess these are (in the _x86_ case) related to the 64-bit _MMX_
+instructions. There remains the question why there's a distinction
+between `Ity_I128` and `Ity_V128` but none between `Ity_I64` and (the
+non-existant) `Ity_V64`. If there's a 64-bit vector, shouldn't there
+be a 64-bit vector type?
+
+A 128-bit vector (`V128`) register can be (merely expanding to the
+other `IRType`s):
+
+  * 16 x `I8`
+  *  8 x `I16` or `F16` (half precision)
+  *  4 x `I32`, `D32` or `F32` (single precision)
+  *  2 x `I64`, `D64` or `F64` (double precision)
+  *  1 x `I128`, `D128` or `F128` (quad precision)
+    
+A 256-bit vector (`V256`) register can be:
+    
+  * 32 x `I8`
+  * 16 x `I16` or `F16` (half precision)
+  *  8 x `I32`, `D32` or `F32` (single precision)
+  *  4 x `I64`, `D64` or `F64` (double precision)
+  *  2 x `I128`, `D128` or `F128` (quad precision)
+
+There are also the possibilities of `128 x I1` and `256 x I1`
+
+We might propose the most likely (but not exhaustive) enhanced vector
+`AIType`s:
+
+32-bit (children of `Ity_I32`):
+
+  * `Aty_V4xI8`
+  * `Aty_V2xI16`
+
+64-bit (children of `Ity_I64`):
+
+  * `Aty_V8xI8`
+  * `Aty_V4xI16`
+  * `Aty_V2xI32`
+  * `Aty_V2xF32`
+
+128-bit (children of `Ity_V128`)
+
+  * `Aty_V16xI8`
+  * `Aty_V8xI16`
+  * `Aty_V4xI32`
+  * `Aty_V2xI64`
+  * `Aty_V8xF16`
+  * `Aty_V4xF32`
+  * `Aty_V2xF64`
+
+256-bit (children of `Ity_V256`):
+
+  * `Aty_V32xI8`
+  * `Aty_V16xI16`
+  * `Aty_V8xI32`
+  * `Aty_V4xI64`
+  * `Aty_V16xF16`
+  * `Aty_V8xF32`
+  * `Aty_V4xF64`
+
+`arinx/hacking/aivtypes.py` confirms this intuition.
