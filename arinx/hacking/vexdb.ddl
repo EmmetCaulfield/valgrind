@@ -120,11 +120,11 @@ CREATE TABLE IF NOT EXISTS IROp (
 -- Human-readable view of IROp's with signatures
 DROP VIEW IF EXISTS IROpView;
 CREATE VIEW IF NOT EXISTS IROpView AS
-    SELECT op.id, "Iop_" || op.mnem, op.aiopsig AS opsig,
+    SELECT op.id, "Iop_" || op.mnem AS irop, op.aiopsig AS opsig,
         sig.res, sig.opd1, sig.opd2, sig.opd3, sig.opd4    
     FROM IROp op
        JOIN
-           AiOpSig sig
+           AiOpSigView sig
        ON
            op.aiopsig=sig.id
     ORDER BY op.id      
