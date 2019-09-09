@@ -28,24 +28,32 @@
 -- order culled from the `typeOfPrimop()` function in
 -- `VEX/priv/ir_defs.c`. We will call these `OpSig`s and keep them in
 -- the table `AiOpSig`.
+--
+-- Small note: I've tried to keep the SQL as neutral as possible, even
+-- though I'm currently only intending on using SQLite3. Although a
+-- SMALLINT would be adequate for the `id`s in all cases, SQLite won't
+-- treat that as an alias for its rowid, so we make them integers.
+
 
 -- For SQLite:
 PRAGMA foreign_keys=ON;
 
 DROP TABLE IF EXISTS IRType;
 CREATE TABLE IF NOT EXISTS IRType (
-       id    SMALLINT PRIMARY KEY,  -- value in IRType enum
-       btype CHAR(1) NOT NULL,      -- basic type designator (e.g. 'F', 'I')
+       id    INTEGER  PRIMARY KEY,  -- value in IRType enum
+       btype CHAR(1)  NOT NULL,     -- basic type designator (e.g. 'F', 'I')
        nbits SMALLINT NOT NULL,     -- number of bits
 
        UNIQUE(btype,nbits)
 );
 
--- SELECT 'Ity_' || btype || nbits FROM IRType;
+DROP VIEW IF EXISTS IRTypeView;
+CREATE VIEW IF NOT EXISTS IRTypeView AS
+       SELECT id, btype, nbits, 'Ity_' || btype || nbits AS cenum FROM IRType;
 
 DROP TABLE IF EXISTS AiType;
 CREATE TABLE IF NOT EXISTS AiType (
-       id     SMALLINT PRIMARY KEY, -- we'll live with whatever the database decides
+       id     INTEGER  PRIMARY KEY, -- we'll live with whatever the database decides
        parent SMALLINT NOT NULL,
        nlanes TINYINT  NOT NULL,    -- number of SIMD lanes (zero for a scalar)
        ltype  CHAR(1)  NOT NULL,    -- lane type designator
@@ -58,7 +66,7 @@ CREATE TABLE IF NOT EXISTS AiType (
 -- Table of operation signatures, AiOpSig
 DROP TABLE IF EXISTS AiOpSig;
 CREATE TABLE IF NOT EXISTS AiOpSig (
-       id     SMALLINT PRIMARY KEY,
+       id     INTEGER  PRIMARY KEY,
        nopds  TINYINT  NOT NULL,           -- number of operands
        ntypes TINYINT  NOT NULL,           -- number of distinct types in operand list
        rmode  BOOLEAN  NOT NULL DEFAULT 0, -- indicate that 'res' is, in fact, a rounding mode
@@ -85,14 +93,14 @@ CREATE VIEW IF NOT EXISTS AiOpSigView AS
         opd2.cenum AS 'opd2',
         opd3.cenum AS 'opd3',
         opd4.cenum AS 'opd4'
-    FROM AIOpSig s
+    FROM AiOpSig s
        JOIN
-         IRType res, IRType opd1 ON s.res=res.id AND s.opd1=opd1.id
+         IRTypeView res, IRTypeView opd1 ON s.res=res.id AND s.opd1=opd1.id
        LEFT OUTER JOIN
-         IRType opd2 ON s.opd2=opd2.id
+         IRTypeView opd2 ON s.opd2=opd2.id
        LEFT OUTER JOIN
-         IRType opd3 ON s.opd3=opd3.id
+         IRTypeView opd3 ON s.opd3=opd3.id
        LEFT OUTER JOIN
-         IRType opd4 ON s.opd4=opd4.id
+         IRTypeView opd4 ON s.opd4=opd4.id
     ORDER BY s.id      
 ;      

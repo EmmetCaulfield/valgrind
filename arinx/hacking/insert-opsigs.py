@@ -8,36 +8,41 @@ curs = conn.cursor()
 
 ItyToId=dict()
 
-for row in curs.execute('SELECT id, cenum FROM Ity'):
+for row in curs.execute('SELECT id, "Ity_" || btype || nbits AS cenum FROM IRType'):
     ItyToId[row[1]]=row[0]
-
-for k,v in ItyToId.items():
-    print("{} : {}".format(k,v))
-
+curs.execute('DELETE FROM AiOpSig')
+conn.commit()
+    
 ItyToId['ity_RMode']=ItyToId['Ity_I32']
 
-i_stub='INSERT INTO Sig(n_opds, n_types, r_mode, res,od1'
-v_stub=') VALUES (?,?,?,?,?'
-with open('unique-sigs.csv') as f:
+
+
+with open('unique-opsigs.csv') as f:
     for line in f:
         fields=line.rstrip().split(',')
         n=int(fields[0])
+        if n<2 or n>5:
+            raise Exception("Invalid operand count.")
         u=int(fields[1])
         r=False;
         if fields[2]=='ity_RMode':
             r=True
         values=chain((n, u, r), (int(ItyToId[x]) for x in fields[2:2+n]))
+
+        i_stub='INSERT INTO AIOpSig(nopds, ntypes, rmode, res,opd1'
+        v_stub=') VALUES (?,?,?,?,?'
+        if n>=3:
+            i_stub += ',opd2'
+            v_stub += ',?'
+        if n>=4:
+            i_stub += ',opd3'
+            v_stub += ',?'
+        if n==5:
+            i_stub += ',opd4'
+            v_stub += ',?'
+            
         try:
-            if n==2:
-                curs.execute(i_stub + v_stub + ')', tuple(values))
-            elif n==3:
-                curs.execute(i_stub + ',od2' + v_stub + ',?)', tuple(values))
-            elif n==4:
-                curs.execute(i_stub + ',od2,od3' + v_stub + ',?,?)', tuple(values))
-            elif n==5:
-                curs.execute(i_stub + ',od2,od3,od4' + v_stub + ',?,?,?)', tuple(values))
-            else:
-                raise ValueError("Invalid arity ({}) in signature".format(n))
+            curs.execute(i_stub + v_stub + ')', tuple(values))
         except Exception as e:
             print(e)
             print(line)
