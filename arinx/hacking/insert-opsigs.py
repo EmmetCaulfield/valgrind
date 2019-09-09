@@ -29,7 +29,7 @@ with open('unique-opsigs.csv') as f:
             r=True
         values=chain((n, u, r), (int(ItyToId[x]) for x in fields[2:2+n]))
 
-        i_stub='INSERT INTO AIOpSig(nopds, ntypes, rmode, res,opd1'
+        i_stub='INSERT INTO AiOpSig(nopds, ntypes, rmode, res,opd1'
         v_stub=') VALUES (?,?,?,?,?'
         if n>=3:
             i_stub += ',opd2'
