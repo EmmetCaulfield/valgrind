@@ -1,104 +1,98 @@
--- Operand types.
--- Based on `enum IRType` in `VEX/pub/libvex_ir.h`
+-- The objective here is to construct a database that can be used to
+-- generate code (e.g. lookup tables or `enum`s) to classify VEX IROps
+-- according to the number of floating-point operations that they
+-- perform. If that were all we would ever want to do, of course, this
+-- would be overkill, but there are opportunities for further
+-- classifications that have dependencies on VEX data structures that
+-- could be a royal pain to maintain manually.
 --
--- The VEX IRType is extended here because it represents SIMD
--- registers as 'V128', 'V256', which are (from our perspective)
--- underspecified. We want to be able to reconstruct the IRType, but
--- we also want to be able to differentiate between 16x 8-bit lanes
--- and 4x 64-bit lanes and whether they're integers or floats.
+-- The naming convention for tables is that tables that *directly*
+-- reflect actual VEX stuff have the exact same name as the VEX data
+-- structure that they represent:
+-- 
+--     `IRType` reflecting `enum IRType` in `VEX/pub/libvex_ir.h`
+--     `IROp` reflecting `enum IROp` in `VEX/pub/libvex_ir.h`
+-- 
+-- Other tables will begin "AI" (for "arithmetic intensity"), the
+-- pseudo-namespace prefix we've chosen for "arinx".
 --
--- We do this by having an `IRType` table that exactly reflects the
--- VEX `enum` and having an "extension" table. We "unify" these in a 
+-- Since IRType has but two vector types (`Ity_V128` and `Ity_V256`),
+-- we need to extend (at least) these with more detailed information
+-- that, when used by an IROp, will allow us to infer the number of
+-- FLOPs performed.
+--
+--     `AiType` extends `IRType` with detailed vector information
+-- 
+-- We further introduce the notion of an "operation signature" for
+-- `IROp`s. This is a tuple of the result first, then the operands in
+-- order culled from the `typeOfPrimop()` function in
+-- `VEX/priv/ir_defs.c`. We will call these `OpSig`s and keep them in
+-- the table `AiOpSig`.
 
 -- For SQLite:
 PRAGMA foreign_keys=ON;
 
 DROP TABLE IF EXISTS IRType;
 CREATE TABLE IF NOT EXISTS IRType (
-       id    INTEGER PRIMARY KEY,  -- value in IRType enum
-       btype CHAR(1) NOT NULL,     -- basic type designator (e.g. 'F', 'I')
-       nbits SMALLINT NOT NULL,    -- number of bits
+       id    SMALLINT PRIMARY KEY,  -- value in IRType enum
+       btype CHAR(1) NOT NULL,      -- basic type designator (e.g. 'F', 'I')
+       nbits SMALLINT NOT NULL,     -- number of bits
 
        UNIQUE(btype,nbits)
 );
 
 -- SELECT 'Ity_' || btype || nbits FROM IRType;
 
-DROP TABLE IF EXISTS IRTypeExt;
-CREATE TABLE IF NOT EXISTS IRTypeExt (
-       id     INTEGER PRIMARY KEY, -- we'll live with whatever the database decides
-       parent INTEGER NOT NULL,
-       nlanes TINYINT NOT NULL,    -- number of SIMD lanes (zero for a scalar)
-       ltype  CHAR(1) NOT NULL,    -- lane type designator
-       lwidth SMALLINT NOT NULL,   -- lane width in bits
+DROP TABLE IF EXISTS AiType;
+CREATE TABLE IF NOT EXISTS AiType (
+       id     SMALLINT PRIMARY KEY, -- we'll live with whatever the database decides
+       parent SMALLINT NOT NULL,
+       nlanes TINYINT  NOT NULL,    -- number of SIMD lanes (zero for a scalar)
+       ltype  CHAR(1)  NOT NULL,    -- lane type designator
+       lwidth SMALLINT NOT NULL,    -- lane width in bits
 
        FOREIGN KEY(parent) REFERENCES IRType(id)
 );
 
--- We implement a hack here to get contiguous unique IDs for the rows
--- of the view we kinda-sorta assume that IRTypeExt's IDs are
--- contiguous starting at 1, which is almost certainly going to be
--- true because of how we build the database: we don't have to worry
--- about rows being deleted and VACUUMed.
-DROP VIEW IF EXISTS Ity;
-CREATE VIEW IF NOT EXISTS Ity AS
-  SELECT
-    CASE WHEN x.id IS NULL THEN
-      t.id
-    ELSE
-      x.id+(SELECT MAX(id) FROM IRType)
-    END
-  AS id,
-    t.btype, t.nbits, x.nlanes, x.ltype, x.lwidth,
-    CASE WHEN x.id IS NULL THEN
-      'Ity_' || t.btype || t.nbits
-    ELSE
-      'Xty_' || x.nlanes || 'x' || x.ltype || x.lwidth 
-    END
-  AS cenum
-  FROM IRType t LEFT OUTER JOIN IRTypeExt x
-  ON x.parent = t.id
-  ORDER BY id
-;
 
--- Table of signatures
-DROP TABLE IF EXISTS Sig;
-CREATE TABLE IF NOT EXISTS Sig (
-       id  INTEGER PRIMARY KEY,
-       n_opds  TINYINT NOT NULL,           -- number of operands
-       n_types TINYINT NOT NULL,           -- number of distinct types in operand list
-       r_mode  BOOLEAN NOT NULL DEFAULT 0, -- indicate that 'res' is, in fact, a rounding mode
-       res INTEGER NOT NULL,               -- there's always a result
-       od1 INTEGER NOT NULL,               -- there's always at least one actual operand
-       od2 INTEGER     NULL,               -- second and subsequent operands may not be present
-       od3 INTEGER     NULL,
-       od4 INTEGER     NULL,
+-- Table of operation signatures, AiOpSig
+DROP TABLE IF EXISTS AiOpSig;
+CREATE TABLE IF NOT EXISTS AiOpSig (
+       id     SMALLINT PRIMARY KEY,
+       nopds  TINYINT  NOT NULL,           -- number of operands
+       ntypes TINYINT  NOT NULL,           -- number of distinct types in operand list
+       rmode  BOOLEAN  NOT NULL DEFAULT 0, -- indicate that 'res' is, in fact, a rounding mode
+       res    SMALLINT NOT NULL,           -- there's always a result
+       opd1   SMALLINT NOT NULL,           -- there's always at least one actual operand
+       opd2   SMALLINT     NULL,           -- second and subsequent operands may not be present
+       opd3   SMALLINT     NULL,
+       opd4   SMALLINT     NULL,
 
-       FOREIGN KEY(res) REFERENCES Ity(id),
-       FOREIGN KEY(od1) REFERENCES Ity(id),
-       FOREIGN KEY(od2) REFERENCES Ity(id),
-       FOREIGN KEY(od3) REFERENCES Ity(id),
-       FOREIGN KEY(od4) REFERENCES Ity(id),
-       UNIQUE(res,od1,od2,od3,od4)
+       FOREIGN KEY(res)  REFERENCES Ity(id),
+       FOREIGN KEY(opd1) REFERENCES Ity(id),
+       FOREIGN KEY(opd2) REFERENCES Ity(id),
+       FOREIGN KEY(opd3) REFERENCES Ity(id),
+       FOREIGN KEY(opd4) REFERENCES Ity(id),
+       UNIQUE(rmode,res,opd1,opd2,opd3,opd4)
 );
 
 -- Human-readable view of signatures
-DROP VIEW IF EXISTS SigView;
-CREATE VIEW IF NOT EXISTS SigView AS
-    SELECT s.id, s.n_opds, s.n_types, s.r_mode,
-        res.cenum AS 'res',
-        od1.cenum AS 'od1',
-        od2.cenum AS 'od2',
-        od3.cenum AS 'od3',
-        od4.cenum AS 'od4'
-    FROM Sig s
+DROP VIEW IF EXISTS AiOpSigView;
+CREATE VIEW IF NOT EXISTS AiOpSigView AS
+    SELECT s.id, s.nopds, s.ntypes, s.rmode,
+        res.cenum  AS 'res',
+        opd1.cenum AS 'opd1',
+        opd2.cenum AS 'opd2',
+        opd3.cenum AS 'opd3',
+        opd4.cenum AS 'opd4'
+    FROM AIOpSig s
        JOIN
-         Ity res, Ity od1 ON s.res=res.id AND s.od1=od1.id
+         IRType res, IRType opd1 ON s.res=res.id AND s.opd1=opd1.id
        LEFT OUTER JOIN
-         Ity od2 ON s.od2=od2.id
+         IRType opd2 ON s.opd2=opd2.id
        LEFT OUTER JOIN
-         Ity od3 ON s.od3=od3.id
+         IRType opd3 ON s.opd3=opd3.id
        LEFT OUTER JOIN
-         Ity od4 ON s.od4=od4.id
+         IRType opd4 ON s.opd4=opd4.id
     ORDER BY s.id      
 ;      
