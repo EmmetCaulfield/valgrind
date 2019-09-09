@@ -71,6 +71,6 @@ sed -n '/^void typeOfPrimop/,/^}/p' "$src" \
     /^Iop_/ {
         print $1, sig
     }
-' | tac | tee all-opsigs.csv
+' | tac > all-opsigs.csv
 
-cut -d, -f2- all-opsigs.csv | sort -u | tee unique-opsigs.csv
+cut -d, -f2- all-opsigs.csv | sort -u > unique-opsigs.csv
