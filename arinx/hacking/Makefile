@@ -23,9 +23,12 @@ all-opsigs.csv: extract-opsigs.sh
 vtypes.csv: all-opsigs.csv
 	./guess-vtypes.py
 
-unique-vtypes.lst: guess-vtypes.py
-	./guess-vtypes.py
+unique-vtypes.lst: vtypes.csv
 
+vclasses.lst: vtypes.csv
+
+ai_classes.c: ai_classes.py vtypes.csv
+	./ai_classes.py
 
 clean:
 	rm -f *~ vexdb.db *.lst *.csv
