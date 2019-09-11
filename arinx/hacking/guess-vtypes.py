@@ -18,9 +18,8 @@ opembeds=re.compile(r'Iop_[A-Za-z]+([0-9]+)([A-Z])?x([0-9]+)')
 # 'I' conversions are 'I'. Unspecified shuffles or bit-twiddling is
 # assumed 'I'. We end up with 27 classes.
 #
-
-# I've tried to handle the IBM 'D' thing but I've no way of testing.
-
+# I've tried to handle the IBM 'D' thing appropriately, but I've no
+# way of testing.
 classifiers = {
     # Standard arithmetic operations
     'StdArOp'   : re.compile('Add|Sub|Mul|Div'),
@@ -80,7 +79,7 @@ manual = {
 vtypes=dict()
 vclasses=dict()
 
-of=open('vtypes.csv', 'w')
+of=open('all-opclasses.csv', 'w')
 
 with open('all-opsigs.csv') as f:
     for line in f:
@@ -217,32 +216,16 @@ with open('all-opsigs.csv') as f:
         elif opclass=='Shuffle':
             nops = 1
 
-        cls=f'Icls_{btype}{opclass}'
+        cls=f'Icls_{opclass}{btype}'
         vclasses[cls] = 1
             
         sig=f'{vtstr},{parent},{btype},{nbits},{nlanes},{opclass},{nops}'
-        vtypes[sig] = 1
         row=f'{mnem},{sig}'
         of.write(row+'\n')
         print(row)
     of.close()
             
-vlist=list(vtypes.keys())
-
-of=open('unique-vtypes.lst', 'w')
-for t in vlist:
-    of.write(t+'\n')
-of.close()
-
-
-of=open('unique-vtypes.lst', 'w')
-for t in vlist:
-    of.write(t+'\n')
-of.close()
-
-of=open('vclasses.lst', 'w')
+of=open('unique-opclasses.lst', 'w')
 for c in list(vclasses.keys()):
     of.write(c+'\n')
 of.close()
-
-

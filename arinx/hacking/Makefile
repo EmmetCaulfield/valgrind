@@ -20,14 +20,14 @@ irops.lst: extract-irops.sh
 all-opsigs.csv: extract-opsigs.sh
 	./extract-opsigs.sh
 
-vtypes.csv: guess-vtypes.py all-opsigs.csv
+all-opclasses.csv: guess-vtypes.py all-opsigs.csv
 	./guess-vtypes.py
 
-unique-vtypes.lst: vtypes.csv
+unique-vtypes.lst: all-opclasses.csv
 
-vclasses.lst: vtypes.csv
+unique-opclasses.lst: all-opclasses.csv
 
-ai_classes.c: ai_classes.py vtypes.csv
+ai_classes.c: ai_classes.py all-opclasses.csv
 	./ai_classes.py
 
 clean:

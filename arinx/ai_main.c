@@ -37,7 +37,10 @@
 #include "pub_tool_debuginfo.h"
 #include "pub_tool_libcbase.h"
 #include "pub_tool_options.h"
-#include "pub_tool_machine.h"     // VG_(fnptr_to_fnentry)
+#include "pub_tool_machine.h"    // VG_(fnptr_to_fnentry)
+#include "libvex_ir.h"
+
+#include "ai_classes.h"
 
 
 // Default function to be called; override with --fnname
@@ -73,16 +76,14 @@ static void ai_print_debug_usage(void)
 
 
 // Operations
-#define N_OPS 7
+#define N_OPS 4
 typedef enum {
     LoadOp   = 0,
     StoreOp  = 1,
-    UnOp     = 2,
-    BinOp    = 3,
-    TriOp    = 4,
-    QuadOp   = 5,
-    BranchOp = 6
+    PrimOp   = 2,
+    BranchOp = 3
 } Op;
+
 
 // Array of type strings from VEX/pub/libvex_ir.h
 #define N_TYPES 15
@@ -103,12 +104,37 @@ static const HChar *index2str[] = {
     "V128",
     "V256"      // 14
 };
-    
+
 static const HChar* nameOfTypeIndex( Int i ) {
     tl_assert( i >= 0  );
     tl_assert( i < N_TYPES );
     return index2str[i];
 }
+
+static UChar typeIndex2size[] = {
+    1,  // "I1"
+    1,  // "I8",
+    2,  // "I16",
+    4,  // "I32",
+    8,  // "I64",
+    16, // "I128",
+    2,  // "F16",
+    4,  // "F32",
+    8,  // "F64",
+    16, // "F128",
+    4,  // "D32",
+    8,  // "D64",
+    16, // "D128",
+    16, // "V128",
+    32, // "V256"
+};
+
+static UChar sizeOfTypeByIndex( Int i ) {
+    tl_assert( i >= 0  );
+    tl_assert( i < N_TYPES );
+    return typeIndex2size[i];
+}
+
 
 // Convert type constant to array index
 static Int type2index( IRType ty )
@@ -136,6 +162,18 @@ static Int type2index( IRType ty )
 // Counts
 static ULong Counts[N_OPS][N_TYPES];
 
+// Convert IROps to array index:
+static Int irop2index( IROp op )
+{
+    tl_assert(op >= Iop_INVALID);
+    tl_assert(op <= Iop_LAST);
+
+    return op-Iop_INVALID;
+}
+
+// Primop counts:
+static ULong Primops[Iop_LAST-Iop_INVALID+1];
+
 // Helper called from instrumented code
 static VG_REGPARM(1)
 void increment_count(ULong *count)
@@ -161,25 +199,52 @@ static void instrument_count(IRSB* sb, Op op, IRType ty, IRExpr* guard)
    addStmtToIRSB( sb, IRStmt_Dirty(di) );
 }
 
+// A helper that adds the instrumentation for a count
+static void instrument_primop(IRSB* sb, IROp op, IRExpr* guard)
+{
+   IRDirty* di;
+   IRExpr** argv;
+   const UInt opIx = irop2index(op);
+
+
+   argv = mkIRExprVec_1( mkIRExpr_HWord( (HWord)&Primops[opIx] ) );
+   di = unsafeIRDirty_0_N( 1, "increment_count",
+                              VG_(fnptr_to_fnentry)( &increment_count ), 
+                              argv);
+   if (guard) di->guard = guard;
+   addStmtToIRSB( sb, IRStmt_Dirty(di) );
+}
+
 
 // Print counts
 static void print_counts ( void )
 {
-   Int typeIx;
-   VG_(umsg)("   Type        Loads       Stores         UnOp        BinOp        TriOp       QuadOp     BranchOp    \n");
-   VG_(umsg)("   ------------------------------------------------------------------------------------------------\n");
-   for (typeIx = 0; typeIx < N_TYPES; typeIx++) {
-       VG_(umsg)("   %-4s %'12llu %'12llu %'12llu %'12llu %'12llu %'12llu %'12llu\n",
-                 nameOfTypeIndex( typeIx ),
-                 Counts[LoadOp ][typeIx],
-                 Counts[StoreOp][typeIx],
-                 Counts[UnOp][typeIx],
-                 Counts[BinOp][typeIx],
-                 Counts[TriOp][typeIx],
-                 Counts[QuadOp][typeIx],
-                 Counts[BranchOp][typeIx]
-      );
-   }
+    ULong classCount[AI_N_CLASSES] = {0L};
+    AIOpCount ac;
+    
+    VG_(umsg)("   Type        Size (B)      Loads (#)       Stores (#)        PrimOp (#)    BranchOp (#) \n");
+    VG_(umsg)("   ----------------------------------------------------------\n");
+    for (Int i = 0; i < N_TYPES; i++) {
+        VG_(umsg)("   %-8s %'12llu %'12llu %'12llu %'12llu %'12llu\n",
+                  nameOfTypeIndex( i ),
+                  sizeOfTypeByIndex(i),
+                  Counts[LoadOp ][i],
+                  Counts[StoreOp][i],
+                  Counts[PrimOp][i],
+                  Counts[BranchOp][i]
+            );
+    }
+
+    for(Int i=0; i<Iop_LAST-Iop_INVALID; i++) {
+        ac = getOpClassAndCountByIROp( i+Iop_INVALID );
+        classCount[ac.cls] += ac.nOps;
+    }
+    
+    VG_(umsg)("   Class        Op Count (#) \n");
+    VG_(umsg)("   --------------------------\n");
+    for (Int i = 0; i < N_TYPES; i++) {
+        VG_(umsg)("   %-12s %'12llu\n", aiClassLabel( i ), classCount[i] );
+    }
 }
 
 
@@ -243,19 +308,19 @@ IRSB* ai_instrument ( VgCallbackClosure* closure,
                 break;
             case Iex_Unop:	// Unary operation
                 op = expr->Iex.Unop.op;
-                instrument_count( sbOut, UnOp, type, NULL/*guard*/ );
+                instrument_primop( sbOut, op, NULL/*guard*/ );
                 break;
             case Iex_Binop:     // Binary operation
                 op = expr->Iex.Binop.op;
-                instrument_count( sbOut, BinOp, type, NULL/*guard*/ );
+                instrument_primop( sbOut, op, NULL/*guard*/ );
                 break;
             case Iex_Triop:     // Ternary operation
                 op = expr->Iex.Triop.details->op;
-                instrument_count( sbOut, TriOp, type, NULL/*guard*/ );
+                instrument_primop( sbOut, op, NULL/*guard*/ );
                 break;
             case Iex_Qop:	// Quaternary operation
                 op = expr->Iex.Qop.details->op;
-                instrument_count( sbOut, QuadOp, type, NULL/*guard*/ );
+                instrument_primop( sbOut, op, NULL/*guard*/ );
                 break;
             case Iex_ITE:       // If-then-else
                 instrument_count( sbOut, BranchOp, type, NULL/*guard*/ );

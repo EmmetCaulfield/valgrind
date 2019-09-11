@@ -53,7 +53,7 @@ CREATE VIEW IF NOT EXISTS IRTypeView AS
 
 DROP TABLE IF EXISTS AiType;
 CREATE TABLE IF NOT EXISTS AiType (
-       id     INTEGER  PRIMARY KEY, -- we'll live with whatever the database decides
+       id     INTEGER  PRIMARY KEY,
        parent SMALLINT NOT NULL,
        nlanes TINYINT  NOT NULL,    -- number of SIMD lanes (zero for a scalar)
        ltype  CHAR(1)  NOT NULL,    -- lane type designator
@@ -101,7 +101,7 @@ CREATE VIEW IF NOT EXISTS AiOpSigView AS
          IRTypeView opd3 ON s.opd3=opd3.id
        LEFT OUTER JOIN
          IRTypeView opd4 ON s.opd4=opd4.id
-    ORDER BY s.id      
+    ORDER BY s.id
 ;      
 
 
@@ -112,8 +112,11 @@ CREATE TABLE IF NOT EXISTS IROp (
      id      INTEGER  PRIMARY KEY,
      mnem    CHAR(16) NOT NULL,     -- mnemonic part of the IROp's identifier
      aiopsig INTEGER      NULL,     -- IROp's signature in AiOpSig
+     aiopcls INTEGER      NULL,     -- IROp's class in AiOpClass
+     aiopcnt SMALLINT     NULL,     -- number of operations performed (e.g. SIMD)
 
-     FOREIGN KEY (aiopsig) REFERENCES AiOpSig(id)
+     FOREIGN KEY (aiopsig) REFERENCES AiOpSig(id),
+     FOREIGN KEY (aiopcls) REFERENCES AiOpClass(id)
 );
 
 
@@ -131,3 +134,12 @@ CREATE VIEW IF NOT EXISTS IROpView AS
 ;      
 
 
+-- Table of operand classes:
+DROP TABLE IF EXISTS AiOpClass;
+CREATE TABLE IF NOT EXISTS AiOpClass (
+       id    INTEGER PRIMARY KEY,       -- database-
+       label VARCHAR(16) NOT NULL,      -- a valid 'C' identifier
+       btype CHAR(1)     NOT NULL,      -- basic type (e.g. 'F', 'I', 'D')
+
+       UNIQUE(label,btype)
+);
