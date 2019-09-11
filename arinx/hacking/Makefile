@@ -20,7 +20,7 @@ irops.lst: extract-irops.sh
 all-opsigs.csv: extract-opsigs.sh
 	./extract-opsigs.sh
 
-vtypes.csv: all-opsigs.csv
+vtypes.csv: guess-vtypes.py all-opsigs.csv
 	./guess-vtypes.py
 
 unique-vtypes.lst: vtypes.csv
