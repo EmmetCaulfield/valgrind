@@ -225,7 +225,7 @@ static void print_counts ( void )
     VG_(umsg)("   Type        Size (B)      Loads (#)       Stores (#)        PrimOp (#)    BranchOp (#) \n");
     VG_(umsg)("   ----------------------------------------------------------\n");
     for (Int i = 0; i < N_TYPES; i++) {
-        VG_(umsg)("   %-8s %'12llu %'12llu %'12llu %'12llu %'12llu\n",
+        VG_(umsg)("   %-4s %'12llu %'12llu %'12llu %'12llu %'12llu\n",
                   nameOfTypeIndex( i ),
                   sizeOfTypeByIndex(i),
                   Counts[LoadOp ][i],
@@ -236,15 +236,36 @@ static void print_counts ( void )
     }
 
     for(Int i=0; i<Iop_LAST-Iop_INVALID; i++) {
-        ac = getOpClassAndCountByIROp( i+Iop_INVALID );
-        classCount[ac.cls] += ac.nOps;
+        ac = aiGetOpCount( i+Iop_INVALID );
+        classCount[ac.cls] += Primops[i]*ac.nOps;
     }
     
-    VG_(umsg)("   Class        Op Count (#) \n");
+    VG_(umsg)("\n   Class        Op Count (#) \n");
     VG_(umsg)("   --------------------------\n");
     for (Int i = 0; i < N_TYPES; i++) {
-        VG_(umsg)("   %-12s %'12llu\n", aiClassLabel( i ), classCount[i] );
+        VG_(umsg)("   %-16s %'12llu\n", aiGetClassLabel( i ), classCount[i] );
     }
+
+    VG_(umsg)("\n   Op        Class      Op Count (#) \n");
+    VG_(umsg)("   ----------------------------------------\n");
+    for(Int i=0; i<Iop_LAST-Iop_INVALID; i++) {
+        if( Primops[i] ) {
+            IROp op = i+Iop_INVALID;
+            ac = aiGetOpCount( op );
+            VG_(umsg)("   %-16s %3u %-16s %'12llu\n", aiGetOpMnemonic(op), op, aiGetClassLabel(ac.cls), Primops[i] );
+        }
+    }
+
+    VG_(umsg)("");
+    ppIROp(5123);
+    VG_(umsg)("\n");
+    ppIROp(5243);
+    VG_(umsg)("\n");
+    ppIROp(5259);
+    VG_(umsg)("\n");
+    ppIROp(6113);
+    VG_(umsg)("\n");
+        
 }
 
 
@@ -408,7 +429,7 @@ static void ai_fini(Int exitcode)
 
 static void ai_pre_clo_init(void)
 {
-   VG_(details_name)            ("arinx");
+   VG_(details_name)            ("Arinx");
    VG_(details_version)         (NULL);
    VG_(details_description)     ("a Valgrind arithmetic intensity tool");
    VG_(details_copyright_author)(
