@@ -21,7 +21,7 @@ unique-opsigs.csv: all-opsigs.csv
 irops.lst: extract-irops.sh
 	./extract-irops.sh
 
-all-opsigs.csv: extract-opsigs.sh
+all-opsigs.csv: extract-opsigs.sh irops.lst reorder-opsigs.py
 	./extract-opsigs.sh
 
 all-opclasses.csv: guess-vtypes.py all-opsigs.csv

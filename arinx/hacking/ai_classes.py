@@ -37,6 +37,8 @@ const HChar* aiGetClassLabel(AIClass cls);
 
 const HChar* aiGetOpMnemonic(IROp op);
 
+const HChar* aiGetOpMnemonicAlt(IROp op);
+
 
 #endif
 """
@@ -75,7 +77,7 @@ static const HChar* const _irop_to_str[Iop_LAST-Iop_INVALID+1] = {
 """
 
 
-c_footer="""    "Iop_LAST"
+c_middle3="""    "Iop_LAST"
 };
 
 void ppAIClass(AIClass cls) {
@@ -93,6 +95,16 @@ const HChar* aiGetClassLabel(AIClass cls) {
 
 const HChar* aiGetOpMnemonic(IROp op) {
     return _irop_to_str[op-Iop_INVALID];
+}
+
+const HChar* aiGetOpMnemonicAlt(IROp op) {
+    switch(op) {
+        case Iop_INVALID: return "Iop_INVALID";
+"""
+
+c_footer="""        case Iop_LAST: return "Iop_LAST";
+    }
+    return "!!!ERROR!!!";
 }
 
 """
@@ -123,6 +135,9 @@ with open('ai_classes.c', 'w') as cout:
     cout.write(c_middle2)
     for iop in irops:
         cout.write(f'    "{iop}",\n')
+    cout.write(c_middle3)
+    for iop in irops:
+        cout.write(f'        case {iop}: return "{iop}";\n')
     cout.write(c_footer)
     
 print(n_classes)

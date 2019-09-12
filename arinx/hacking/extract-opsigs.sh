@@ -71,6 +71,6 @@ sed -n '/^void typeOfPrimop/,/^}/p' "$src" \
     /^Iop_/ {
         print $1, sig
     }
-' | tac > all-opsigs.csv
+' | ./reorder-opsigs.py > all-opsigs.csv
 
 cut -d, -f2- all-opsigs.csv | sort -u > unique-opsigs.csv

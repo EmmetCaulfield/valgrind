@@ -252,20 +252,9 @@ static void print_counts ( void )
         if( Primops[i] ) {
             IROp op = i+Iop_INVALID;
             ac = aiGetOpCount( op );
-            VG_(umsg)("   %-16s %3u %-16s %'12llu\n", aiGetOpMnemonic(op), op, aiGetClassLabel(ac.cls), Primops[i] );
+            VG_(umsg)("   %-16s %-16s %'12llu\n", aiGetOpMnemonic(op), aiGetClassLabel(ac.cls), Primops[i] );
         }
     }
-
-    VG_(umsg)("");
-    ppIROp(5123);
-    VG_(umsg)("\n");
-    ppIROp(5243);
-    VG_(umsg)("\n");
-    ppIROp(5259);
-    VG_(umsg)("\n");
-    ppIROp(6113);
-    VG_(umsg)("\n");
-        
 }
 
 
