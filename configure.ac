@@ -4721,6 +4721,8 @@ AC_CONFIG_FILES([
    dhat/tests/Makefile
    lackey/Makefile
    lackey/tests/Makefile
+   arinx/Makefile
+   arinx/tests/Makefile
    none/Makefile
    none/tests/Makefile
    none/tests/scripts/Makefile

@@ -12,6 +12,7 @@ TOOLS = \
 		massif \
 		dhat \
 		lackey \
+		arinx \
 		none
 
 EXP_TOOLS = \
