@@ -31,9 +31,13 @@ typedef struct {
     UChar nOps;
 } AIOpCount;
 
-AIOpCount getOpClassAndCountByIROp(IROp op);
+AIOpCount aiGetOpCount(IROp op);
 
-const HChar* aiClassLabel(AIClass cls);
+const HChar* aiGetClassLabel(AIClass cls);
+
+const HChar* aiGetOpMnemonic(IROp op);
+
+
 #endif
 """
 
@@ -56,14 +60,22 @@ static const HChar* const _aicls_to_str[Icls_LAST-Icls_INVALID+1] = {
     "Icls_INVALID",
 """
 
-c_middle="""    "Icls_LAST"
+c_middle1="""    "Icls_LAST"
 };
 
 static const AIOpCount _irop_to_aiopcount[Iop_LAST-Iop_INVALID+1] = {
     { (UChar)Icls_INVALID, (UChar)0 },
 """
 
-c_footer="""    { (UChar)Icls_LAST, (UChar)0 }
+c_middle2="""    { (UChar)Icls_LAST, (UChar)0 }
+};
+
+static const HChar* const _irop_to_str[Iop_LAST-Iop_INVALID+1] = {
+    "Iop_INVALID",
+"""
+
+
+c_footer="""    "Iop_LAST"
 };
 
 void ppAIClass(AIClass cls) {
@@ -71,12 +83,16 @@ void ppAIClass(AIClass cls) {
     VG_(printf)("%s", str);
 }
 
-AIOpCount getOpClassAndCountByIROp(IROp op) {
+AIOpCount aiGetOpCount(IROp op) {
     return _irop_to_aiopcount[op-Iop_INVALID];
 }
 
-const HChar* aiClassLabel(AIClass cls) {
+const HChar* aiGetClassLabel(AIClass cls) {
     return _aicls_to_str[cls-Icls_INVALID];
+}
+
+const HChar* aiGetOpMnemonic(IROp op) {
+    return _irop_to_str[op-Iop_INVALID];
 }
 
 """
@@ -95,13 +111,18 @@ with open('ai_classes.c', 'w') as cout:
                     hout.write(f'    {ident},\n')
                     cout.write(f'    "{ident}",\n')
         hout.write(h_footer)
-    cout.write(c_middle)
+    cout.write(c_middle1)
+    irops=[];
     with open('all-opclasses.csv') as infile:
         for line in infile:
             fld=line.rstrip().split(',')
             cls=f'Icls_{fld[6]}{fld[3]}'
             nop=int(fld[7])
             cout.write(f'    {{ (UChar){cls}, (UChar){nop} }},  /* {fld[0]} */ \n')
+            irops.append(fld[0])
+    cout.write(c_middle2)
+    for iop in irops:
+        cout.write(f'    "{iop}",\n')
     cout.write(c_footer)
     
 print(n_classes)
