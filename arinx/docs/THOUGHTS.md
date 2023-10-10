@@ -42,21 +42,19 @@ The complete type of an operand or result can be encoded into one byte:
     
     // Two bits represent type of an operand/result:
     #define AI_I (0x00) // General integer (signed/unsigned not specified)
-    #define AI_U (0x01) // Unsigned integer
-    #define AI_S (0x02) // Signed integer
-    #define AI_F (0x03) // IEEE (or similar) floating-point number
-    #define AI_D (0x04) // Decimal floating-point number
-    #define AI_V (0x04) // Vector
+    #define AI_F (0x01) // IEEE (or similar) floating-point number
+    #define AI_D (0x02) // Decimal floating-point number
+    #define AI_V (0x03) // Vector
 
     // Three bits represent the SIMD multiplicity of operand/result:
-    #define AI_0x (0x00) // Scalar (non-SIMD) operation
-    #define AI_1x (0x01) // Scalar operand in SIMD register (e.g. splats & horizontals)
-    #define AI_2x (0x01) // 2x operations
-    #define AI_2x (0x02) // 4x operations
-    #define AI_2x (0x03) // 8x operations
-    #define AI_2x (0x04) // 16x operations
-    #define AI_2x (0x05) // 32x operations
-    #define AI_2x (0x06) // 64x operations (e.g. AVX 512 on bytes)
+    #define AI_0x  (0x00) // Scalar (non-SIMD) operation
+    #define AI_1x  (0x01) // Scalar operand in SIMD register (e.g. splats & horizontals)
+    #define AI_2x  (0x02) // 2x operations
+    #define AI_4x  (0x03) // 4x operations
+    #define AI_8x  (0x04) // 8x operations
+    #define AI_16x (0x05) // 16x operations
+    #define AI_32x (0x06) // 32x operations
+    #define AI_64x (0x07) // 64x operations (e.g. AVX 512 on bytes)
 
 
 This enables a compact encoding for up to binary operations (two
